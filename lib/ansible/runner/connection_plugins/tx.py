@@ -107,7 +107,9 @@ class _StdinConsumer(ProcessProtocol):
 
     def write(self, data):
         vvv('writing %d %r' % (len(data), data,))
-        self.transport.write(data.encode('utf-8'))
+        if type(data) == unicode:
+            data = data.encode('utf-8')
+        self.transport.write(data)
         vvv('wrote')
 
 
@@ -167,7 +169,7 @@ class SSHConnection(object):
 
 
     def _commandFailedToStart(self, err):
-        vvvv('Command failed to start')
+        vvvv('FAILED TO START: %s' % (err,))
 
 
     def copyFile(self, path, producer):
@@ -319,6 +321,8 @@ class _ConnectedConnection(object):
         vvv('exec_command %r %r %r %r %r' % (cmd, len(in_data or ''), tmp_path, sudo_user, sudoable),
             host=self.host)
         proto = SimpleProtocol(in_data)
+        if sudo_user and sudo_user != 'root':
+            cmd = 'su - %s %s' % (sudo_user, cmd)
         if sudoable:
             cmd = 'sudo ' + cmd
         try:
