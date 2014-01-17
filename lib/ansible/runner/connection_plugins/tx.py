@@ -138,13 +138,17 @@ class SSHConnection(object):
 
 
     @wait_for_reactor
-    def spawnProcess(self, protocol, command):
+    def spawnProcess(self, protocol, command, sudo=False, sudo_user=None):
         vvvv('SPAWN %r' % (command,))
         
         # copy the script over
         from hashlib import sha1
         filename = '/tmp/script%s' % (sha1(command).hexdigest(),)
         new_command = '/bin/sh %s' % (pipes.quote(filename),)
+        if sudo_user and sudo_user != 'root':
+            new_command = 'su - %s %s' % (sudo_user, new_command)
+        if sudo:
+            new_command = 'sudo ' + new_command
         d = self.copyFile(filename, FileBodyProducer(StringIO(command)))
 
         # then run it
@@ -321,12 +325,8 @@ class _ConnectedConnection(object):
         vvv('exec_command %r %r %r %r %r' % (cmd, len(in_data or ''), tmp_path, sudo_user, sudoable),
             host=self.host)
         proto = SimpleProtocol(in_data)
-        if sudo_user and sudo_user != 'root':
-            cmd = 'su - %s %s' % (sudo_user, cmd)
-        if sudoable:
-            cmd = 'sudo ' + cmd
         try:
-            self._conn.spawnProcess(proto, cmd)
+            self._conn.spawnProcess(proto, cmd, sudoable, sudo_user)
         except Exception as e:
             vvv(str(e))
         return proto.rc, proto.stdin, proto.output[1], proto.output[2]
